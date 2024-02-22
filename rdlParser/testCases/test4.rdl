@@ -1,0 +1,28 @@
+//
+// Enumeration Example
+//
+enum link_status_enum {
+  not_present = 4'd0 { desc = "No link peer is currently detected"; };
+  training = 4'd1 { desc = "Link is currently training"; };
+  snooze = 4'd5 { desc = "Link is in a partial low power state"; };
+  sleep = 4'd6 { desc = "Link is a Full low power state"; };
+  wake = 4'd7 { desc = "Link is waking up from snooze or sleep state"; };
+  active = 4'd10 { desc = "Link is operating normally"; };
+};
+field link_status_field {
+  hw = rw;
+  sw = r;
+  desc = "Status of a Serdes Link";
+  encode = link_status_enum;
+  fieldwidth = 4;
+};
+reg serdes_link_status_reg {
+  link_status_field port0; // Instance 4 ports of Link Status
+  link_status_field port1;
+  link_status_field port2;
+  link_status_field port3;
+};
+regfile {
+  hw = rw;
+  fieldwidth = 4;
+} dfgg;

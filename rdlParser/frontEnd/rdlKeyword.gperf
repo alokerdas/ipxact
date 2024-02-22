@@ -1,0 +1,121 @@
+%{
+#include <string.h>
+#include "yacc.h"
+extern int rdl_keyword_code (const char*str, unsigned len);
+%}
+
+struct rdl_keyword { const char*name; int tokenType; };
+
+%%
+accesswidth, k_accesswidth 
+activehigh, k_activehigh 
+activelow, k_activelow 
+addressing, k_addressing 
+addrmap, k_addrmap
+alias, k_alias 
+alignment, k_alignment 
+all, k_all 
+anded, k_anded 
+arbiter, k_arbiter
+async, k_async 
+bigendian, k_bigendian 
+bothedge, k_bothedge 
+bridge, k_bridge 
+clock, k_clock
+compact, k_compact 
+counter, k_counter 
+cpuif_reset, k_cpuif_reset 
+decr, k_decr 
+decrsaturate, k_decrsaturate
+decrthreshold, k_decrthreshold 
+decrvalue, k_decrvalue 
+decrwidth, k_decrwidth 
+default, k_default 
+desc, k_desc
+dontcompare, k_dontcompare 
+donttest, k_donttest 
+enable, k_enable 
+encode, k_encode 
+enum, k_enum
+errextbus, k_errextbus 
+external, k_external 
+false, k_false 
+field, k_field 
+field_reset, k_field_reset
+fieldwidth, k_fieldwidth 
+fullalign, k_fullalign 
+halt, k_halt 
+haltenable, k_haltenable 
+haltmask, k_haltmask
+hw, k_hw 
+hwclr, k_hwclr 
+hwenable, k_hwenable 
+hwmask, k_hwmask 
+hwset, k_hwset
+incr, k_incr 
+incrvalue, k_incrvalue 
+incrwidth, k_incrwidth 
+internal, k_internal 
+intr, k_intr
+level, k_level 
+littleendian, k_littleendian 
+lsb0, k_lsb0 
+mask, k_mask 
+msb0, k_msb0
+na, k_na 
+name, k_name 
+negedge, k_negedge 
+next, k_next 
+nonsticky, k_nonsticky
+ored, k_ored 
+overflow, k_overflow 
+posedge, k_posedge 
+precedence, k_precedence 
+property, k_property
+r, k_r 
+rclr, k_rclr 
+reg, k_reg 
+regalign, k_regalign 
+regfile, k_regfile
+regwidth, k_regwidth 
+reset, k_reset 
+resetsignal, k_resetsignal 
+rset, k_rset 
+rsvdset, k_rsvdset
+rsvdsetX, k_rsvdsetX 
+rw, k_rw 
+saturate, k_saturate 
+shared, k_shared 
+sharedextbus, k_sharedextbus
+signal, k_signal 
+signalwidth, k_signalwidth 
+singlepulse, k_singlepulse 
+sticky, k_sticky 
+stickybit, k_stickybit
+sw, k_sw 
+swacc, k_swacc 
+swmod, k_swmod 
+swwe, k_swwe 
+swwel, k_swwel
+sync, k_sync 
+threshold, k_threshold 
+true, k_true 
+underflow, k_underflow 
+w, k_w
+we, k_we 
+wel, k_wel 
+woclr, k_woclr 
+woset, k_woset 
+wr, k_wr
+xored, k_xored
+%%
+
+int rdl_keyword_code(const char*str, unsigned nstr)
+{
+      const struct rdl_keyword*rc = check_identifier(str, nstr);
+      if (rc == 0)
+          return IDENTIFIER;
+      else
+          return rc->tokenType;
+}
+

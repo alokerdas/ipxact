@@ -1,0 +1,7 @@
+print 'reg myReg {
+  <% $num_fields = 16;
+  for( $i = 0; $i < $num_fields*2; $i += 2 ) { %>
+    myField data<%=$i/2%> [<%=$i+1%>:<%=$i%>];
+    data<%=$i/2%>->reset = 2'd<%=$i/2%4%>;
+  <% } %>
+};';

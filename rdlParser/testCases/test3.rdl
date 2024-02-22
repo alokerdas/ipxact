@@ -1,0 +1,13 @@
+// This example shows using perl to do anything you desire
+field myField {
+  desc = "My example 2bit status field";
+  rclr; // Read to Clear
+};
+// An example of Apache's ASP standard for embedding Perl
+reg myReg {
+  <% $num_fields = 16;
+  for( $i = 0; $i < $num_fields*2; $i += 2 ) { %>
+    myField data<%=$i/2%> [<%=$i+1%>:<%=$i%>];
+    data<%=$i/2%>->reset = 2'd<%=$i/2%4%>;
+  <% } %>
+};
