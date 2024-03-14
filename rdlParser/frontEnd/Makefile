@@ -18,7 +18,8 @@ lexor.o: rdlParse.l yacc.h
 	flex -olexor.c rdlParse.l
 	$(CC) $(CFLAGS) $(INCDIRS) -c lexor.c
 rdlGperf.o: rdlKeyword.gperf yacc.h
-	gperf -N check_identifier -L ANSI-C -t rdlKeyword.gperf >& rdlGperf.c
+	rm -f rdlGperf.c
+	gperf -N check_identifier -L ANSI-C -t rdlKeyword.gperf > rdlGperf.c
 	$(CC) $(CFLAGS) $(INCDIRS) -c rdlGperf.c
 $(BIN): $(OBJECTS)
 	$(CC) -o $@ $(OBJECTS)

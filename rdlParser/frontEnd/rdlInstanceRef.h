@@ -10,7 +10,7 @@ class RDLInstanceRef : public RDLBase
   map<RDLBase*, RDLNumber*> instanceIndexArr;
 
   public:
-  RDLInstanceRef::RDLInstanceRef();
+  RDLInstanceRef();
   void addInstanceReference(RDLBase* inst, RDLNumber* idx);
   void decompile();
 };
