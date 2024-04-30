@@ -15,6 +15,7 @@ class RDLComponent : public RDLBase
   typedef enum
   {
     RDL_COMPONENT_NONE,
+    RDL_COMPONENT_MEM,
     RDL_COMPONENT_REG,
     RDL_COMPONENT_FIELD,
     RDL_COMPONENT_SIGNAL,

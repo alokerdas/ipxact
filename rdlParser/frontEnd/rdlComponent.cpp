@@ -20,6 +20,9 @@ string RDLComponent::getComponentString()
   string compTp;
   switch (getComponentType())
   {
+    case RDL_COMPONENT_MEM:
+      compTp = "mem";
+      break;
     case RDL_COMPONENT_REG:
       compTp = "reg";
       break;

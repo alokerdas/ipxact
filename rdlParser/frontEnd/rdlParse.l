@@ -95,11 +95,14 @@ static int comment_enter;
 @                       { return AT; }
 :                       { return COLON; }
 ,                       { return COMA; }
+#                       { return HASH; }
 \]                      { return RSQ; }
 \[                      { return LSQ; }
 \|                      { return OR; }
 \{                      { return LBRAC; }
 \}                      { return RBRAC; }
+\(                      { return LPRNTH; }
+\)                      { return RPRNTH; }
 \.                      { return DOT; }
 
 %%

@@ -43,31 +43,31 @@ RDLProperty::rdl_property_modifier_type propModTyp;
 
 %token <text> HEX_NUMBER BASED_NUMBER DEC_NUMBER
 %token <text>   IDENTIFIER SYSTEM_IDENTIFIER STRING
-%token AT LBRAC RBRAC SEMI EQ COMA LSQ RSQ OR DREF INC MOD DOT COLON
-%token k_accesswidth k_activehigh k_activelow k_addressing k_addrmap
-%token k_alias k_alignment k_all k_anded k_arbiter
-%token k_async k_bigendian k_bothedge k_bridge k_clock
-%token k_compact k_counter k_cpuif_reset k_decr k_decrsaturate
+%token LPRNTH RPRNTH LBRAC RBRAC LSQ RSQ
+%token AT HASH SEMI EQ COMA OR DREF INC MOD DOT COLON
+%token k_abstr k_accesstype k_accesswidth k_activehigh k_activelow
+%token k_addressing k_addressingtype k_addrmap k_alias k_alignment
+%token k_all k_anded k_async k_bit k_bigendian k_bothedge k_boolean
+%token k_bridge k_component k_compact k_componentwidth k_constraint
+%token k_counter k_cpuif_reset k_decr k_decrsaturate
 %token k_decrthreshold k_decrvalue k_decrwidth k_default k_desc
 %token k_dontcompare k_donttest k_enable k_encode k_enum
 %token k_errextbus k_external k_false k_field k_field_reset
 %token k_fieldwidth k_fullalign k_halt k_haltenable k_haltmask
 %token k_hw k_hwclr k_hwenable k_hwmask k_hwset
-%token k_incr k_incrvalue k_incrwidth k_internal k_intr
-%token k_level k_littleendian k_lsb0 k_mask k_msb0
-%token k_na k_name k_negedge k_next k_nonsticky
-%token k_ored k_overflow k_posedge k_precedence k_property
-%token k_r k_rclr k_reg k_regalign k_regfile
-%token k_regwidth k_reset k_resetsignal k_rset k_rsvdset
-%token k_rsvdsetX k_rw k_saturate k_shared k_sharedextbus
-%token k_signal k_signalwidth k_singlepulse k_sticky k_stickybit
-%token k_sw k_swacc k_swmod k_swwe k_swwel
-%token k_sync k_threshold k_true k_underflow k_w
-%token k_we k_wel k_woclr k_woset k_wr k_xored
-%token k_type k_component k_boolean k_number k_string k_ref
+%token k_incr k_incrvalue k_incrwidth k_inside k_internal k_intr
+%token k_level k_littleendian k_lsb0 k_longint k_mask k_msb0 k_mem
+%token k_na k_name k_negedge k_next k_nonsticky k_number
+%token k_onreadtype k_onwritetype k_ored k_overflow
+%token k_posedge k_precedence k_precedencetype k_property k_r
+%token k_rclr k_reg k_regalign k_regfile k_regwidth k_reset k_resetsignal
+%token k_rset k_rsvdset k_rsvdsetX k_ruser k_rw k_rw1 k_saturate k_shared
+%token k_sharedextbus k_signal k_signalwidth k_singlepulse
+%token k_sticky k_stickybit k_string k_struct k_sw k_swacc
+%token k_swmod k_swwe k_swwel k_sync k_ref k_this k_threshold k_true k_type
+%token k_underflow k_unsigned k_w k_w1 k_we k_wel k_wclr k_woclr k_woset k_wot k_wr k_wset k_wuser k_wzc k_wzs k_wzt k_xored
 
-%type <Number> number index_opt
-%type <text> id_opt explicit_component_inst_front
+%type <Number> number constant_expression
 %%
 
   /* A degenerate source file can be completely empty. */
@@ -77,32 +77,67 @@ main : source_file
 source_file : description
   | source_file description
   ;
-description : component_def_item
-  | property_definition
+description : component_definition //this is done
+  | enum_definition //this is done
+  | struct_definition //this is done
+  | constraint_definition //this is done
+  | explicit_component_inst //this is done
+  | property_assignment //this is done
+  | property_definition //this is done
   ;
-component_def : component_def_kword id_opt LBRAC
+component_definition : component_named_definition component_instance_type_opt component_instances_opt SEMI
+  | component_anonymous_definition component_instance_type_opt component_instances SEMI
+  | component_instance_type component_named_definition component_instances SEMI
+  | component_instance_type component_anonymous_definition component_instances SEMI
+  ;
+component_instance_type_opt : component_instance_type
+  |
+    {
+      instType = RDLInstance::RDL_INSTANCE_NONE;
+    }
+  ;
+component_instance_type : k_internal
+    {
+      instType = RDLInstance::RDL_INSTANCE_INTERNAL;
+    }
+  | k_external
+    {
+      instType = RDLInstance::RDL_INSTANCE_EXTERNAL;
+    }
+  ;
+component_named_definition : component_type IDENTIFIER parameter_definitions_opt
     {
       tmpComp->setName($2);
       tmpComp->setScope(currentScope);
       currentScope->addItem(tmpComp);
       currentScope = tmpComp;
     }
-    component_def_items RBRAC
+    component_body
     {
       currentScope = currentScope->getScope();
     }
-    inst_elems_opt SEMI
-  | component_def_kword id_opt LBRAC RBRAC
+  ;
+component_anonymous_definition : component_type
     {
-      tmpComp->setName($2);
       tmpComp->setScope(currentScope);
       currentScope->addItem(tmpComp);
     }
-    inst_elems_opt SEMI
+    component_body
+    {
+      currentScope = currentScope->getScope();
+    }
   ;
-component_def_kword : k_reg
+component_type : k_mem
+    {
+      tmpComp = new RDLComponent(RDLComponent::RDL_COMPONENT_MEM);
+    }
+  | k_reg
     {
       tmpComp = new RDLComponent(RDLComponent::RDL_COMPONENT_REG);
+    }
+  | k_regfile
+    {
+      tmpComp = new RDLComponent(RDLComponent::RDL_COMPONENT_REGFILE);
     }
   | k_field
     {
@@ -116,49 +151,58 @@ component_def_kword : k_reg
     {
       tmpComp = new RDLComponent(RDLComponent::RDL_COMPONENT_ADDRMAP);
     }
-  | k_regfile
-    {
-      tmpComp = new RDLComponent(RDLComponent::RDL_COMPONENT_REGFILE);
-    }
   ;
-id_opt : IDENTIFIER
+parameter_definitions_opt : HASH LPRNTH parameter_definitions RPRNTH
   |
+  ;
+parameter_definitions : parameter_definition
+  | parameter_definitions COMA parameter_definition
+  ;
+parameter_definition : parameter_type IDENTIFIER array_type_opt parameter_value_opt
     {
       char ss[32];
       sprintf(ss, "_internal%d", tmpComp);
-      $$ = strdup(ss);
+//      $$ = strdup(ss);
     }
   ;
-component_def_items : component_def_item
-  | component_def_items component_def_item
+parameter_type : k_boolean
+  | k_string
+  | k_bit
+  | k_longint
+  | k_unsigned
+  | k_longint k_unsigned
+  | k_accesstype
+  | k_addressingtype
+  | k_onreadtype
+  | k_onwritetype
   ;
-component_def_item : enum_def
-  | explicit_component_inst
-  | property_assign
-  | component_def
-  ;
-inst_elems_opt : anonymous_component_inst_elems
+array_type_opt : LBRAC RBRAC
   |
   ;
-anonymous_component_inst_elems : external_opt
-    {
-      definedObj = tmpComp;
-    }
-    component_inst_elements
-  ;
-external_opt : k_external
-    {
-      instType = RDLInstance::RDL_INSTANCE_EXTERNAL;
-    }
+parameter_value_opt : EQ constant_expression
   |
-    {
-      instType = RDLInstance::RDL_INSTANCE_NONE;
-    }
   ;
-component_inst_elements : component_inst_elem
-  | component_inst_elements COMA component_inst_elem
+component_body : LBRAC component_items RBRAC
   ;
-component_inst_elem : IDENTIFIER
+component_items : component_item
+  | component_items component_item
+  ;
+component_item : component_definition //this is done
+  | explicit_component_inst //this is done
+  | enum_definition //this is done
+  | struct_definition //this is done
+  | constraint_definition //this is done
+  | property_assignment //this is done
+  ;
+component_instances_opt : component_instances
+  |
+  ;
+component_instances : parameter_intstances_opt component_instance_items
+  ;
+component_instance_items : component_instance
+  | component_instance_items COMA component_instance
+  ;
+component_instance : IDENTIFIER
     {
       tmpInst = new RDLInstance(instType, $1);
       tmpInst->setScope(currentScope);
@@ -178,6 +222,10 @@ array_opt : array
   ;
 array : LSQ number
     {
+      if (definedObj)
+      {
+          tmpInstRef->addInstanceReference(definedObj, $2);
+      }
       tmpInst->setIndexLeft($2);
     }
     col_num_opt RSQ
@@ -188,63 +236,58 @@ col_num_opt :  COLON number
     }
   |
   ;
-element_opt : oprtr_num
+element_opt : element
     {
       cout << "INFO:\tCurrently optr_num is not supported" << endl;
     }
   |
   ;
-oprtr_num : EQ number
-  | AT number INC number
-  | AT number MOD number
-  | AT number
-  | INC number
-  | MOD number
+element : EQ constant_expression
+  | AT constant_expression
+  | INC constant_expression
+  | MOD constant_expression
+  | AT constant_expression INC constant_expression
+  | AT constant_expression MOD constant_expression
   ;
-explicit_component_inst : explicit_component_inst_front
+explicit_component_inst : component_instance_type_opt component_instance_alias_opt IDENTIFIER component_instances SEMI
     {
-      definedObj = currentScope->isAlreadyDefined($1);
+      definedObj = currentScope->isAlreadyDefined($3);
       if (!definedObj)
       {
-        cout << "ERROR: Cannot find \"" << $1 << "\" in \"" << currentScope->getName() << "\" or higher scope onwards." << endl;
+        cout << "ERROR: Cannot find \"" << $3 << "\" in \"" << currentScope->getName() << "\" or higher scope onwards." << endl;
         exit (-1);
       }
     }
-    component_inst_elements SEMI
   ;
-explicit_component_inst_front : IDENTIFIER
-    {
-      instType = RDLInstance::RDL_INSTANCE_NONE;
-      $$ = $1;
-    }
-  | k_alias IDENTIFIER IDENTIFIER
+component_instance_alias_opt : component_instance_alias
+  |
+  ;
+component_instance_alias : k_alias IDENTIFIER
     {
       instType = RDLInstance::RDL_INSTANCE_NONE;
       // tmpInst->setAliasName($2); implement it
-      $$ = $3;
-    }
-  | k_internal IDENTIFIER
-    {
-      instType = RDLInstance::RDL_INSTANCE_INTERNAL;
-      $$ = $2;
-    }
-  | k_external IDENTIFIER
-    {
-      instType = RDLInstance::RDL_INSTANCE_EXTERNAL;
-      $$ = $2;
     }
   ;
-property_assign : post_property_assign SEMI
+parameter_intstances_opt : HASH LPRNTH parameter_intstances RPRNTH
+  |
+  ;
+parameter_intstances : parameter_intstance
+  | parameter_intstances COMA parameter_intstance
+  ;
+parameter_intstance : DOT IDENTIFIER LPRNTH constant_expression RPRNTH
+  ;
+property_assignment : post_property_assign SEMI
     {
       currentScope = currentScope->getScope();
     }
-  | explicit_property_assign SEMI
-  | default_property_assign SEMI
-  ;
-default_property_assign : k_default explicit_property_assign
+  | default_opt property_modifier IDENTIFIER SEMI
     {
       tmpProp->setAsDefault();
     }
+  | default_opt explicit_property_assign SEMI
+  ;
+default_opt : k_default
+  |
   ;
 explicit_property_assign : property
     {
@@ -261,17 +304,18 @@ explicit_property_assign : property
     {
       currentScope = currentScope->getScope();
     }
-  | property_modifier property
+  | k_encode EQ IDENTIFIER
     {
       tmpProp->setPropertyModifierType(propModTyp);
       tmpProp->setScope(currentScope);
       currentScope->addItem(tmpProp);
     }
   ;
-post_property_assign : instance_ref EQ property_assign_rhs
+post_property_assign : property_reference EQ property_assign_rhs
     {
       currentScope = currentScope->getScope();
     }
+  | instance_reference DREF k_encode EQ IDENTIFIER
   ;
 property_modifier : k_level
     {
@@ -294,122 +338,96 @@ property_modifier : k_level
       propModTyp = RDLProperty::RDL_PROPERTY_MODIFIER_NONSTICKY;
     }
   ;
-property_assign_rhs : property_rvalue_constant
-  | k_enum LBRAC
+property_assign_rhs : constant_expression
+  | k_hw
     {
       tmpEnum = new RDLEnum();
       tmpEnum->setScope(currentScope);
       currentScope->addItem(tmpEnum);
       currentScope = tmpEnum;
-    }
-    enum_body RBRAC
-    {
-      currentScope = currentScope->getScope();
-    }
-  | instance_ref
-    {
-      currentScope = currentScope->getScope();
-    }
-  | concat
-    {
-      tmpProp->setPropertyValue("CONCATANATION");
-    }
-  ;
-property_rvalue_constant : k_true
-    {
-      tmpProp->setPropertyValue("true");
-    }
-  | k_false
-    {
-      tmpProp->setPropertyValue("false");
-    }
-  | k_rw
-    {
-      tmpProp->setPropertyValue("rw");
-    }
-  | k_wr
-    {
-      tmpProp->setPropertyValue("wr");
-    }
-  | k_r
-    {
-      tmpProp->setPropertyValue("r");
-    }
-  | k_w
-    {
-      tmpProp->setPropertyValue("w");
-    }
-  | k_na
-    {
-      tmpProp->setPropertyValue("na");
-    }
-  | k_compact
-    {
-      tmpProp->setPropertyValue("compact");
-    }
-  | k_regalign
-    {
-      tmpProp->setPropertyValue("regalign");
-    }
-  | k_fullalign
-    {
-      tmpProp->setPropertyValue("fullalign");
-    }
-  | k_hw
-    {
       tmpProp->setPropertyValue("hw");
     }
   | k_sw
     {
       tmpProp->setPropertyValue("sw");
-    }
-  | number
-    {
-      tmpProp->setPropertyValue("NUMBER");
-      tmpProp->setValue($1);
-    }
-  | STRING
-    {
-      string ss("\"");
-      ss += $1;
-      ss += "\"";
-      tmpProp->setPropertyValue(ss.c_str());
+      currentScope = currentScope->getScope();
     }
   ;
-property_definition : k_property IDENTIFIER LBRAC
+constraint_definition : k_constraint IDENTIFIER constraint_body SEMI
+  | k_constraint IDENTIFIER constraint_body constraint_insts SEMI
+  | k_constraint constraint_body constraint_insts SEMI
+  ;
+constraint_insts : IDENTIFIER
+  | constraint_insts COMA IDENTIFIER
+  ;
+constraint_body : LBRAC constraint_items RBRAC
+  ;
+constraint_items : constraint_item SEMI
+  | constraint_items constraint_item SEMI
+  ;
+constraint_item : constant_expression
+  | constraint_prop_assignment
+  | constraint_lhs k_inside IDENTIFIER
+  | constraint_lhs k_inside LBRAC constraint_values RBRAC
+  ;
+constraint_lhs : k_this
+  | instance_reference
+  ;
+constraint_prop_assignment : IDENTIFIER EQ constant_expression
+  ;
+constraint_values : constraint_value
+  | constraint_values COMA constraint_value
+  ;
+constraint_value : constant_expression
+  | LSQ constant_expression COLON constant_expression RSQ
+  ;
+property_definition : k_property IDENTIFIER
     {
       tmpPropDef = new RDLPropertyDefinition($2);
       tmpPropDef->setScope(currentScope);
       currentScope->addItem(tmpPropDef);
     }
-    property_body RBRAC SEMI
+    property_body SEMI
   ;
-property_body : property_type property_usage_default
-  | property_usage property_type_default
-  | property_default property_type_usage
-;
-property_usage_default : property_default property_usage
-  | property_usage property_default_opt
+property_body : LBRAC property_items RBRAC
   ;
-property_type_default : property_default property_type
-  | property_type property_default_opt
+property_items : property_item
+  | property_items property_item
   ;
-property_type_usage : property_type property_usage
-  | property_usage property_type
+property_item : property_type
+  | property_usage
+  | property_default
+  | property_constraint
   ;
-property_default_opt : property_default
-  |
+property_type : k_type EQ property_type_item array_type_opt SEMI
   ;
-property_type : k_type EQ property_type_item SEMI
-  ;
-property_type_item : property_ref_type
-  | property_boolean_type
-  | property_number_type
-  | property_string_type
-  ;
-property_ref_type : k_ref
+property_type_item : k_ref
     {
       tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_REF);
+    }
+  | k_number
+    {
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_NUMBER);
+    }
+  | k_boolean
+    {
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_BOOLEAN);
+    }
+  | k_string
+    {
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_STRING);
+    }
+  | k_bit
+    {
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_BIT);
+    }
+  | k_longint
+    {
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_LONGINT);
+    }
+  | k_longint k_unsigned
+    {
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_LONGINT_UNSIGN);
     }
   | k_reg
     {
@@ -423,24 +441,17 @@ property_ref_type : k_ref
     {
       tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_ADDRMAP);
     }
+  | k_mem
+    {
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_MEM);
+    }
   | k_regfile
     {
       tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_REGFILE);
     }
-  ;
-property_string_type : k_string
+  | IDENTIFIER
     {
-      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_STRING);
-    }
-  ;
-property_number_type : k_number
-    {
-      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_NUMBER);
-    }
-  ;
-property_boolean_type : k_boolean
-    {
-      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_BOOLEAN);
+      tmpPropDef->setPropertyTypeType(RDLPropertyDefinition::RDL_PROPERTY_TYPE_USER);
     }
   ;
 property_usage : k_component EQ property_components SEMI
@@ -448,9 +459,63 @@ property_usage : k_component EQ property_components SEMI
 property_components : property_component
   | property_components OR property_component
   ;
-property_default : k_default EQ default_value SEMI
+property_component : k_all
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_ALL);
+    }
+  | k_constraint
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_CONSTRAINT);
+    }
+  | k_reg
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_REG);
+    }
+  | k_regfile
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_REGFILE);
+    }
+  | k_field
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_FIELD);
+    }
+  | k_addrmap
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_ADDRMAP);
+    }
+  | k_mem
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_FIELD);
+    }
+  | k_signal
+    {
+      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_SIGNAL);
+    }
   ;
-default_value : number
+property_constraint : k_constraint EQ k_componentwidth
+  ;
+property_default : k_default EQ constant_expression SEMI
+  ;
+constant_expression : constant_primary
+  | unary_operator constant_primary
+  | constant_expression binary_operator constant_primary
+  | constant_expression '?' constant_expression ':' constant_primary
+  ;
+unary_operator : '!' | '+' | '-' | '~' | '&' | '|' | '^' | "~&" | "~|" | "~^" | "^~"
+  ;
+binary_operator : '<' | '>' | '-' | '%' | '&' | '|' | '^' | "&&" | "||" | "~^"
+  | "^~" | "<=" | ">=" | "==" | "!=" | ">>" | "<<" | "*" | "**" | "/" | '+'
+  ;
+constant_primary : primary_literal
+  | constant_cast
+  | LPRNTH constant_expression RPRNTH
+  | LBRAC constant_concatenation RBRAC
+  | instance_or_prop_ref
+  | struct_literal
+  | array_literal
+  ;
+primary_literal : k_this
+  | number
     {
       tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_NUMBER);
     }
@@ -466,49 +531,97 @@ default_value : number
     {
       tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
     }
+  | enumerator_literal
+  | addressingtype_literal
+  | accesstype_literal
+  | onreadtype_literal
+  | onwritetype_literal
   ;
-property_component : k_all
+enumerator_literal : IDENTIFIER "::" IDENTIFIER
+  ;
+addressingtype_literal : k_compact
+  | k_regalign
+  | k_fullalign
+  ;
+onreadtype_literal : k_rclr
+  | k_rset
+  | k_ruser
+  ;
+accesstype_literal : k_na
     {
-      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_ALL);
+      tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
     }
-  | k_reg
+  | k_rw
     {
-      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_REG);
+      tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
     }
-  | k_field
+  | k_wr
     {
-      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_FIELD);
+      tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
     }
-  | k_addrmap
+  | k_r
     {
-      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_ADDRMAP);
+      tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
     }
-  | k_regfile
+  | k_w
     {
-      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_REGFILE);
+      tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
     }
-  | k_signal
+  | k_rw1
     {
-      tmpPropDef->setPropertyComponentType(RDLPropertyDefinition::RDL_PROPERTY_COMPONENT_SIGNAL);
+      tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
+    }
+  | k_w1
+    {
+      tmpPropDef->setPropertyDefaultType(RDLPropertyDefinition::RDL_PROPERTY_DEFAULT_FALSE);
     }
   ;
-instance_ref : instance_ref_elements dref_opt
+onwritetype_literal : k_woset
+  | k_woclr
+  | k_wot
+  | k_wzs
+  | k_wzc
+  | k_wzt
+  | k_wclr
+  | k_wset
+  | k_wuser
+  ;
+constant_cast : k_boolean '\'' LPRNTH constant_expression RPRNTH
+  | k_longint '\'' LPRNTH constant_expression RPRNTH
+  | k_bit '\'' LPRNTH constant_expression RPRNTH
+// | constant_primary '\'' LPRNTH constant_expression RPRNTH
+  ;
+constant_concatenation : constant_expression
+  | constant_concatenation COMA constant_expression
+  ;
+property_reference : instance_reference deref
+  ;
+instance_or_prop_ref : instance_reference
     {
       stratOfInstRef = 1;
     }
+  | property_reference
   ;
-dref_opt : DREF property
+deref : DREF property
     {
       tmpProp->setScope(currentScope);
       currentScope->addItem(tmpProp);
       currentScope = tmpProp;
     }
-  |
+/*
+  | DREF IDENTIFIER
+    {
+      // need to change
+      tmpProp->setScope(currentScope);
+      currentScope->addItem(tmpProp);
+      currentScope = tmpProp;
+    }
+*/
   ;
-instance_ref_elements : instance_ref_elem
-  | instance_ref_elements DOT instance_ref_elem
+instance_reference : instance_ref_elem
+  | instance_reference DOT instance_ref_elem
   ;
-instance_ref_elem : IDENTIFIER index_opt
+instance_ref_elem : IDENTIFIER array_opt
     {
       if (stratOfInstRef)
       {
@@ -519,39 +632,16 @@ instance_ref_elem : IDENTIFIER index_opt
         currentScope = tmpInstRef;
       }
       definedObj = currentScope->isAlreadyDefined($1);
-      if (definedObj)
-          tmpInstRef->addInstanceReference(definedObj, $2);
-      else
+      if (!definedObj)
       {
         cout << "ERROR: Cannot find " << $1 << " in " << (currentScope->getScope())->getName() << " or higher scope onwards." << endl;
         exit (-1);
       }
     }
   ;
-index_opt : LSQ number RSQ
+property : k_hw
     {
-      $$ = $2;
-    }
-  |
-    {
-      $$ = 0;
-    }
-  ;
-property : k_name
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_NAME);
-    }
-  | k_desc
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DESC);
-    }
-  | k_arbiter
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ARBITER);
-    }
-  | k_rset
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_RSET);
+      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HW);
     }
   | k_rclr
     {
@@ -565,323 +655,74 @@ property : k_name
     {
       tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_WOSET);
     }
-  | k_we
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_WE);
-    }
-  | k_wel
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_WEL);
-    }
-  | k_swwe
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SWWE);
-    }
-  | k_swwel
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SWWEL);
-    }
-  | k_hwset
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HWSET);
-    }
-  | k_hwclr
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HWCLR);
-    }
-  | k_swmod
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SWMOD);
-    }
-  | k_swacc
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SWACC);
-    }
-  | k_sticky
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_STICKY);
-    }
-  | k_stickybit
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_STICKYBIT);
-    }
-  | k_intr
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_INTR);
-    }
-  | k_anded
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ANDED);
-    }
-  | k_ored
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ORED);
-    }
-  | k_xored
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_XORED);
-    }
-  | k_counter
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_COUNTER);
-    }
-  | k_overflow
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_OVERFLOW);
-    }
-  | k_sharedextbus
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SHAREDEXTBUS);
-    }
-  | k_errextbus
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ERREXTBUS);
-    }
-  | k_reset
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_RESET);
-    }
-  | k_littleendian
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_LITTLEENDIAN);
-    }
-  | k_bigendian
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_BIGENDIAN);
-    }
-  | k_rsvdset
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_RSVDSET);
-    }
-  | k_rsvdsetX
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_RSVDSETX);
-    }
-  | k_bridge
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_BRIDGE);
-    }
-  | k_shared
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SHARED);
-    }
-  | k_msb0
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_MSB0);
-    }
-  | k_lsb0
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_LSB0);
-    }
-  | k_sync
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SYNC);
-    }
-  | k_async
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ASYNC);
-    }
-  | k_cpuif_reset
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_CPUIF_RESET);
-    }
-  | k_field_reset
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_FIELD_RESET);
-    }
-  | k_activehigh
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ACTIVEHIGH);
-    }
-  | k_activelow
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ACTIVELOW);
-    }
-  | k_singlepulse
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SINGLEPULSE);
-    }
-  | k_underflow
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_UNDERFLOW);
-    }
-  | k_incr
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_INCR);
-    }
-  | k_decr
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DECR);
-    }
-  | k_incrwidth
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_INCRWIDTH);
-    }
-  | k_decrwidth
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DECRWIDTH);
-    }
-  | k_incrvalue
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_INCRVALUE);
-    }
-  | k_decrvalue
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DECRVALUE);
-    }
-  | k_saturate
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SATURATE);
-    }
-  | k_decrsaturate
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DECRSATURATE);
-    }
-  | k_threshold
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_THRESHOLD);
-    }
-  | k_decrthreshold
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DECRTHRESHOLD);
-    }
-  | k_dontcompare
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DONTCOMPARE);
-    }
-  | k_donttest
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_DONTTEST);
-    }
-  | k_internal
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_INTERNAL);
-    }
-  | k_alignment
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ALIGNMENT);
-    }
-  | k_regwidth
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_REGWIDTH);
-    }
-  | k_fieldwidth
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_FIELDWIDTH);
-    }
-  | k_signalwidth
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SIGNALWIDTH);
-    }
-  | k_accesswidth
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ACCESSWIDTH);
-    }
   | k_sw
     {
       tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_SW);
     }
-  | k_hw
+  | k_rset
     {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HW);
-    }
-  | k_addressing
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ADDRESSING);
-    }
-  | k_precedence
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_PRECEDENCE);
-    }
-  | k_encode
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ENCODE);
-    }
-  | k_resetsignal
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_RESETSIGNAL);
-    }
-  | k_clock
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_CLOCK);
-    }
-  | k_mask
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_MASK);
-    }
-  | k_enable
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_ENABLE);
-    }
-  | k_hwenable
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HWENABLE);
-    }
-  | k_hwmask
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HWMASK);
-    }
-  | k_haltmask
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HALTMASK);
-    }
-  | k_haltenable
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HALTENABLE);
-    }
-  | k_halt
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_HALT);
-    }
-  | k_next
-    {
-      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_NEXT);
+      tmpProp = new RDLProperty(RDLProperty::RDL_PROPERTY_RSET);
     }
   ;
-
-
-concat : LBRAC concat_elements RBRAC
-    {
-      cout << "INFO:\tCurrently concat is not supported" << endl;
-    }
+array_literal : '\'' LBRAC array_literal_items RBRAC
   ;
-concat_elements : concat_elem
-  | concat_elements COMA concat_elem
+array_literal_items : constant_expression
+  | array_literal_items COMA constant_expression
   ;
-concat_elem : number
-  | instance_ref
+struct_literal : IDENTIFIER '\'' LBRAC struct_literal_items RBRAC
   ;
-enum_def : k_enum IDENTIFIER LBRAC
+struct_literal_items : struct_literal_item
+  | struct_literal_items COMA struct_literal_item
+  ;
+struct_literal_item : IDENTIFIER COLON constant_expression
+  ;
+enum_definition : k_enum IDENTIFIER
     {
       tmpEnum = new RDLEnum($2);
       tmpEnum->setScope(currentScope);
       currentScope->addItem(tmpEnum);
       currentScope = tmpEnum;
     }
-    enum_body RBRAC SEMI
+    enum_body SEMI
     {
       currentScope = currentScope->getScope();
     }
   ;
-enum_body : enum_entry
-  | enum_body enum_entry
+enum_body : LBRAC enum_items RBRAC 
   ;
-enum_entry : IDENTIFIER EQ number
+enum_items : enum_item
+  | enum_items enum_item
+  ;
+enum_item : IDENTIFIER EQ constant_expression
     {
       tmpEnum->setEntryValue($1, $3);
     }
     enum_property_assign_block_opt SEMI
+  | IDENTIFIER enum_property_assign_block_opt SEMI
   ;
-enum_property_assign_block_opt : LBRAC enum_property_assignments RBRAC
+enum_property_assign_block_opt : enum_property_assign_block
   |
   ;
-enum_property_assignments : enum_property_assign
-  | enum_property_assignments enum_property_assign
+enum_property_assign_block : LBRAC enum_property_assignments RBRAC
   ;
-enum_property_assign : enum_property_assign_kword EQ STRING SEMI
+enum_property_assignments : explicit_property_assign SEMI
+  | enum_property_assignments explicit_property_assign SEMI
   ;
-enum_property_assign_kword : k_name
-  | k_desc
+struct_definition : abstr_opt k_struct IDENTIFIER derive_opt struct_body
+  ;
+abstr_opt : k_abstr
+  |
+  ;
+derive_opt : COLON IDENTIFIER
+  |
+  ;
+struct_body : LBRAC struct_items RBRAC
+  ;
+struct_items : struct_item SEMI
+  | struct_items struct_item SEMI
+  ;
+struct_item : parameter_type IDENTIFIER array_type_opt
+  | component_type IDENTIFIER array_type_opt
   ;
 number : BASED_NUMBER
     {
