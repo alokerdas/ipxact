@@ -249,7 +249,8 @@ element : EQ constant_expression
   | AT constant_expression INC constant_expression
   | AT constant_expression MOD constant_expression
   ;
-explicit_component_inst : component_instance_type_opt component_instance_alias_opt IDENTIFIER component_instances SEMI
+//explicit_component_inst : component_instance_type_opt component_instance_alias_opt IDENTIFIER SEMI
+explicit_component_inst : component_instance_type component_instance_alias_opt IDENTIFIER SEMI
     {
       definedObj = currentScope->isAlreadyDefined($3);
       if (!definedObj)
@@ -501,10 +502,9 @@ constant_expression : constant_primary
   | constant_expression binary_operator constant_primary
   | constant_expression '?' constant_expression ':' constant_primary
   ;
-unary_operator : '!' | '+' | '-' | '~' | '&' | '|' | '^' | "~&" | "~|" | "~^" | "^~"
+unary_operator : '+' | '-' | '&' | '|' | '^' | "~^" | "^~" | "~|" | "~&" | '!' | '~'
   ;
-binary_operator : '<' | '>' | '-' | '%' | '&' | '|' | '^' | "&&" | "||" | "~^"
-  | "^~" | "<=" | ">=" | "==" | "!=" | ">>" | "<<" | "*" | "**" | "/" | '+'
+binary_operator : '+' | '-' | '&' | '|' | '^' | "~^" | "^~" | '<' | '>' | '%' | "&&" | "||" | "<=" | ">=" | "==" | "!=" | ">>" | "<<" | "*" | "**" | "/"
   ;
 constant_primary : primary_literal
   | constant_cast
@@ -589,7 +589,7 @@ onwritetype_literal : k_woset
 constant_cast : k_boolean '\'' LPRNTH constant_expression RPRNTH
   | k_longint '\'' LPRNTH constant_expression RPRNTH
   | k_bit '\'' LPRNTH constant_expression RPRNTH
-// | constant_primary '\'' LPRNTH constant_expression RPRNTH
+//  | constant_primary '\'' LPRNTH constant_expression RPRNTH
   ;
 constant_concatenation : constant_expression
   | constant_concatenation COMA constant_expression
